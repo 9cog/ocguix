@@ -17,12 +17,11 @@ jobs:
 #      pull-requests: write
 
     steps:
+      - name: Install GNU Guix
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y guix
 
-    # guix opencog
-    - run: |
-        guix package -f opencog.scm
-      shell: bash
-      name: ocguix
-      id: ocguix
-
-      
+      - name: ocguix
+        run: guix package -f opencog.scm
+        
