@@ -1,0 +1,23 @@
+# This workflow will
+
+name: ocguix
+on: [pull_request_target]
+
+jobs:
+  ocguix:
+
+    runs-on: ubuntu-latest
+#    permissions:
+#      contents: read
+#      pull-requests: write
+
+    steps:
+
+    # guix opencog
+    - run: |
+        guix package -f opencog.scm
+      shell: bash
+      name: ocguix
+      id: ocguix
+
+      
