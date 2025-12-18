@@ -21,9 +21,26 @@ This is a static website. To view it locally:
 2. Open `index.html` in a web browser
 3. Or serve it with any web server (e.g., `python3 -m http.server`)
 
+## GNU Guix Package Definition
+
+The `opencog.scm` file contains the complete GNU Guix package definitions for all OpenCog components. To use these packages with GNU Guix:
+
+1. Copy `opencog.scm` to your Guix channel or local package directory
+2. Use it with `guix package -f opencog.scm` to install packages
+3. Or add it to your Guix configuration
+
+The file defines the following packages:
+- `cogutil` - Low-level C++ utilities
+- `atomspace` - Hypergraph database and rule engine
+- `cogserver` - Network server
+- `attention` - Attention allocation subsystem
+- `opencog` - Main AGI framework
+- `agi-bio` - Genomic and proteomic research tools
+
 ## Structure
 
 - `index.html` - Main page with package list
 - `style.css` - Styling for all pages
+- `opencog.scm` - GNU Guix package definitions
 - `packages/` - Directory containing individual package pages
   - `<package-name>/<version>/index.html` - Detail page for each package
