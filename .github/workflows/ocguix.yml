@@ -1,4 +1,4 @@
-# This workflow will
+# OpenCog Guix Package Build and Artifact Generation
 
 name: ocguix
 
@@ -12,9 +12,6 @@ jobs:
   ocguix:
 
     runs-on: ubuntu-latest
-#    permissions:
-#      contents: read
-#      pull-requests: write
 
     steps:
       - name: Checkout repository
@@ -36,6 +33,81 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y guix
 
-      - name: ocguix
-        run: guix package -f opencog.scm
-        
+      - name: Build OpenCog packages
+        run: |
+          echo "Building OpenCog package..."
+          guix package -f opencog.scm
+          echo "Build completed successfully!"
+
+      - name: Export package manifest
+        run: |
+          echo "Exporting package manifest..."
+          guix package --export-manifest > opencog-manifest.scm
+          cat opencog-manifest.scm
+
+      - name: Create package archive
+        run: |
+          echo "Creating package archive..."
+          mkdir -p artifacts
+          guix pack opencog -f tarball -o artifacts/opencog-pack.tar.gz
+          ls -lh artifacts/
+
+      - name: Generate build info
+        run: |
+          echo "Generating build information..."
+          cat > artifacts/build-info.txt << EOF
+          OpenCog Guix Package Build
+          ==========================
+          Build Date: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          Git Commit: ${GITHUB_SHA}
+          Git Branch: ${GITHUB_REF#refs/heads/}
+          Workflow Run: ${GITHUB_RUN_NUMBER}
+          Runner OS: $(uname -a)
+          
+          Packages Built:
+          ---------------
+          $(guix package --list-installed)
+          
+          Package Details:
+          ---------------
+          $(guix package --show=opencog 2>/dev/null || echo "Package info not available")
+          EOF
+          cat artifacts/build-info.txt
+
+      - name: Copy manifest to artifacts
+        run: |
+          cp opencog-manifest.scm artifacts/
+          cp opencog.scm artifacts/opencog-package-definition.scm
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: opencog-guix-packages
+          path: |
+            artifacts/
+          retention-days: 90
+          compression-level: 9
+
+      - name: Upload manifest separately
+        uses: actions/upload-artifact@v4
+        with:
+          name: opencog-manifest
+          path: opencog-manifest.scm
+          retention-days: 90
+
+      - name: Build summary
+        run: |
+          echo "## 🎉 Build Successful!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Artifacts Generated" >> $GITHUB_STEP_SUMMARY
+          echo "- **opencog-pack.tar.gz**: Complete package archive" >> $GITHUB_STEP_SUMMARY
+          echo "- **opencog-manifest.scm**: Package manifest for reproduction" >> $GITHUB_STEP_SUMMARY
+          echo "- **opencog-package-definition.scm**: Original package definition" >> $GITHUB_STEP_SUMMARY
+          echo "- **build-info.txt**: Build metadata and package information" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Package Size" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          ls -lh artifacts/opencog-pack.tar.gz >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Download artifacts from the workflow run page." >> $GITHUB_STEP_SUMMARY
