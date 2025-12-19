@@ -69,7 +69,7 @@
                      (invoke file))
                    (find-files "tests" "UTest$"))))))))
       (inputs
-       (list boost-1.83))
+       (list boost))
       (native-inputs
        `(("cxxtest" ,cxxtest)
          ("python" ,python-minimal)
