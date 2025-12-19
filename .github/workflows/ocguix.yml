@@ -1,4 +1,4 @@
-# OpenCog Guix Package Build and Artifact Generation
+# OpenCog Guix Package Build with Caching and Artifact Generation
 
 name: ocguix
 
@@ -28,16 +28,51 @@ jobs:
           echo "Checking for opencog.scm:"
           ls -l opencog.scm || echo "opencog.scm not found"
 
+      - name: Cache Guix store
+        uses: actions/cache@v4
+        with:
+          path: |
+            /var/guix
+            ~/.cache/guix
+          key: guix-store-${{ runner.os }}-${{ hashFiles('opencog.scm') }}
+          restore-keys: |
+            guix-store-${{ runner.os }}-
+
       - name: Install GNU Guix
         run: |
           sudo apt-get update
           sudo apt-get install -y guix
+          
+          # Display Guix version
+          guix --version
+          
+          # Initialize Guix if needed
+          sudo mkdir -p /var/guix
+          sudo chown -R $USER:$USER /var/guix || true
+
+      - name: Restore Guix daemon state
+        run: |
+          echo "Checking Guix store state..."
+          if [ -d "/var/guix/profiles" ]; then
+            echo "Guix store cache restored"
+            du -sh /var/guix 2>/dev/null || echo "Unable to check size"
+          else
+            echo "No cache found, will download all dependencies"
+          fi
 
       - name: Build OpenCog packages
         run: |
           echo "Building OpenCog package..."
+          echo "This will download and cache all dependencies..."
           guix build -f opencog.scm
           echo "Build completed successfully!"
+
+      - name: Display Guix store statistics
+        run: |
+          echo "Guix store statistics:"
+          guix gc --list-dead 2>/dev/null | wc -l || echo "Dead items: N/A"
+          guix gc --list-live 2>/dev/null | wc -l || echo "Live items: N/A"
+          du -sh /var/guix 2>/dev/null || echo "Store size: N/A"
 
       - name: Export package manifest
         run: |
@@ -95,6 +130,11 @@ jobs:
           ------------------
           guix build -f opencog.scm
           
+          Cache Status:
+          ------------
+          Cache was used for dependencies (if available from previous builds)
+          All downloaded sources and built packages are cached for future runs
+          
           Package Definition:
           ------------------
           See opencog-package-definition.scm in artifacts
@@ -133,6 +173,10 @@ jobs:
           echo "- **Build Path**: \`${{ steps.build_output.outputs.build_path }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Git Commit**: \`${GITHUB_SHA:0:7}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Workflow Run**: #${GITHUB_RUN_NUMBER}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🚀 Caching Enabled" >> $GITHUB_STEP_SUMMARY
+          echo "Dependencies and build outputs are cached for faster future builds." >> $GITHUB_STEP_SUMMARY
+          echo "Cache key: \`guix-store-${{ runner.os }}-${{ hashFiles('opencog.scm') }}\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Artifacts Generated" >> $GITHUB_STEP_SUMMARY
           echo "- **opencog-pack.tar.gz**: Package archive" >> $GITHUB_STEP_SUMMARY
