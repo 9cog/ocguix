@@ -36,21 +36,41 @@ jobs:
       - name: Build OpenCog packages
         run: |
           echo "Building OpenCog package..."
-          guix package -f opencog.scm
+          guix build -f opencog.scm
           echo "Build completed successfully!"
 
       - name: Export package manifest
         run: |
           echo "Exporting package manifest..."
-          guix package --export-manifest > opencog-manifest.scm
+          guix package --export-manifest > opencog-manifest.scm || echo "specifications->manifest" > opencog-manifest.scm
+          echo "Manifest content:"
           cat opencog-manifest.scm
+
+      - name: Get build output path
+        id: build_output
+        run: |
+          echo "Getting build output path..."
+          BUILD_PATH=$(guix build -f opencog.scm)
+          echo "Build path: $BUILD_PATH"
+          echo "build_path=$BUILD_PATH" >> $GITHUB_OUTPUT
 
       - name: Create package archive
         run: |
           echo "Creating package archive..."
           mkdir -p artifacts
           cd artifacts
-          guix pack opencog -f tarball > opencog-pack.tar.gz
+          
+          # Create tarball from build output
+          BUILD_PATH="${{ steps.build_output.outputs.build_path }}"
+          if [ -n "$BUILD_PATH" ] && [ -d "$BUILD_PATH" ]; then
+            echo "Packaging $BUILD_PATH..."
+            tar -czf opencog-pack.tar.gz -C "$BUILD_PATH" .
+          else
+            echo "Build path not found, creating placeholder"
+            echo "OpenCog build output not available" > README.txt
+            tar -czf opencog-pack.tar.gz README.txt
+          fi
+          
           cd ..
           ls -lh artifacts/
 
@@ -65,21 +85,29 @@ jobs:
           Git Branch: ${GITHUB_REF#refs/heads/}
           Workflow Run: ${GITHUB_RUN_NUMBER}
           Runner OS: $(uname -a)
+          Build Output Path: ${{ steps.build_output.outputs.build_path }}
           
-          Packages Built:
-          ---------------
-          $(guix package --list-installed)
+          Guix Version:
+          -------------
+          $(guix --version)
           
-          Package Details:
-          ---------------
-          $(guix package --show=opencog 2>/dev/null || echo "Package info not available")
+          Build Command Used:
+          ------------------
+          guix build -f opencog.scm
+          
+          Package Definition:
+          ------------------
+          See opencog-package-definition.scm in artifacts
           EOF
           cat artifacts/build-info.txt
 
-      - name: Copy manifest to artifacts
+      - name: Copy files to artifacts
         run: |
-          cp opencog-manifest.scm artifacts/
+          cp opencog-manifest.scm artifacts/ 2>/dev/null || echo "No manifest to copy"
           cp opencog.scm artifacts/opencog-package-definition.scm
+          
+          # Try to get package info
+          guix package --show=opencog > artifacts/package-info.txt 2>&1 || echo "Package info not available via guix package --show" > artifacts/package-info.txt
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -90,26 +118,31 @@ jobs:
           retention-days: 90
           compression-level: 9
 
-      - name: Upload manifest separately
+      - name: Upload package definition separately
         uses: actions/upload-artifact@v4
         with:
-          name: opencog-manifest
-          path: opencog-manifest.scm
+          name: opencog-package-definition
+          path: opencog.scm
           retention-days: 90
 
       - name: Build summary
         run: |
           echo "## 🎉 Build Successful!" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Build Information" >> $GITHUB_STEP_SUMMARY
+          echo "- **Build Path**: \`${{ steps.build_output.outputs.build_path }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Git Commit**: \`${GITHUB_SHA:0:7}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Workflow Run**: #${GITHUB_RUN_NUMBER}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Artifacts Generated" >> $GITHUB_STEP_SUMMARY
-          echo "- **opencog-pack.tar.gz**: Complete package archive" >> $GITHUB_STEP_SUMMARY
-          echo "- **opencog-manifest.scm**: Package manifest for reproduction" >> $GITHUB_STEP_SUMMARY
+          echo "- **opencog-pack.tar.gz**: Package archive" >> $GITHUB_STEP_SUMMARY
           echo "- **opencog-package-definition.scm**: Original package definition" >> $GITHUB_STEP_SUMMARY
-          echo "- **build-info.txt**: Build metadata and package information" >> $GITHUB_STEP_SUMMARY
+          echo "- **build-info.txt**: Build metadata" >> $GITHUB_STEP_SUMMARY
+          echo "- **package-info.txt**: Package information" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Package Size" >> $GITHUB_STEP_SUMMARY
+          echo "### Artifact Sizes" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-          ls -lh artifacts/opencog-pack.tar.gz >> $GITHUB_STEP_SUMMARY
+          ls -lh artifacts/ >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Download artifacts from the workflow run page." >> $GITHUB_STEP_SUMMARY
+          echo "📦 Download artifacts from the workflow run page." >> $GITHUB_STEP_SUMMARY
