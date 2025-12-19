@@ -356,3 +356,6 @@ combination.")
 the OpenCog toolset with Guile.  This includes experiments in applying pattern
 mining and other OpenCog components.")
       (license license:agpl3))))
+
+;; Return the main opencog package for use with `guix package -f`
+opencog
