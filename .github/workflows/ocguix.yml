@@ -49,7 +49,9 @@ jobs:
         run: |
           echo "Creating package archive..."
           mkdir -p artifacts
-          guix pack opencog -f tarball -o artifacts/opencog-pack.tar.gz
+          cd artifacts
+          guix pack opencog -f tarball > opencog-pack.tar.gz
+          cd ..
           ls -lh artifacts/
 
       - name: Generate build info
