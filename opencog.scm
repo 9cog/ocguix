@@ -212,7 +212,7 @@ tasks.")
         #~(list (string-append "-DGUILE_INCLUDE_DIR=" #$guile-2.2
                                "/include/guile/2.2/")
                 (string-append "-DGUILE_SITE_DIR=" #$output
-                               "/share/guile/site/2.2/")))))
+                               "/share/guile/site/2.2/"))))
       (inputs
        `(("attention" ,attention)
          ("atomspace" ,atomspace)
