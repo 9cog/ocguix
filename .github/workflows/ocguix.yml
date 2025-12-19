@@ -17,6 +17,20 @@ jobs:
 #      pull-requests: write
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Debug - List repository files
+        run: |
+          echo "Current directory:"
+          pwd
+          echo "Files in current directory:"
+          ls -la
+          echo "Checking for opencog.scm:"
+          ls -l opencog.scm || echo "opencog.scm not found"
+
       - name: Install GNU Guix
         run: |
           sudo apt-get update
