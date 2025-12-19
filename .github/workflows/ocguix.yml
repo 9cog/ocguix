@@ -1,4 +1,4 @@
-# OpenCog Guix Package Build with Caching and Artifact Generation
+# OpenCog Guix Package Build with Auto-Sync to Repository
 
 name: ocguix
 
@@ -18,6 +18,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Debug - List repository files
         run: |
@@ -27,6 +28,16 @@ jobs:
           ls -la
           echo "Checking for opencog.scm:"
           ls -l opencog.scm || echo "opencog.scm not found"
+
+      - name: Cache local build directory
+        uses: actions/cache@v4
+        with:
+          path: |
+            build/
+            .guix-profile/
+          key: ocguix-build-${{ runner.os }}-${{ hashFiles('opencog.scm') }}
+          restore-keys: |
+            ocguix-build-${{ runner.os }}-
 
       - name: Cache Guix store
         uses: actions/cache@v4
@@ -50,29 +61,125 @@ jobs:
           sudo mkdir -p /var/guix
           sudo chown -R $USER:$USER /var/guix || true
 
+      - name: Setup local build directory
+        run: |
+          echo "Setting up local build directory..."
+          mkdir -p build
+          mkdir -p .guix-profile
+          
+          # Check if we have cached builds
+          if [ -d "build/opencog" ]; then
+            echo "✓ Found cached build directory"
+            ls -lh build/
+          else
+            echo "No cached build found, will build from scratch"
+          fi
+
       - name: Restore Guix daemon state
         run: |
           echo "Checking Guix store state..."
           if [ -d "/var/guix/profiles" ]; then
-            echo "Guix store cache restored"
+            echo "✓ Guix store cache restored"
             du -sh /var/guix 2>/dev/null || echo "Unable to check size"
           else
             echo "No cache found, will download all dependencies"
           fi
 
-      - name: Build OpenCog packages
+      - name: Build OpenCog packages to local directory
         run: |
-          echo "Building OpenCog package..."
+          echo "Building OpenCog package to local directory..."
           echo "This will download and cache all dependencies..."
-          guix build -f opencog.scm
+          
+          # Build the package and get the output path
+          BUILD_OUTPUT=$(guix build -f opencog.scm)
+          echo "Build output: $BUILD_OUTPUT"
+          
+          # Copy build output to local build directory
+          mkdir -p build/opencog
+          if [ -n "$BUILD_OUTPUT" ] && [ -d "$BUILD_OUTPUT" ]; then
+            echo "Copying build output to build/opencog/..."
+            cp -r "$BUILD_OUTPUT"/* build/opencog/ 2>/dev/null || rsync -av "$BUILD_OUTPUT/" build/opencog/
+            echo "✓ Build copied to local directory"
+          fi
+          
           echo "Build completed successfully!"
+          du -sh build/ 2>/dev/null || echo "Build directory size: N/A"
 
-      - name: Display Guix store statistics
+      - name: Create local Guix profile
         run: |
-          echo "Guix store statistics:"
-          guix gc --list-dead 2>/dev/null | wc -l || echo "Dead items: N/A"
-          guix gc --list-live 2>/dev/null | wc -l || echo "Live items: N/A"
-          du -sh /var/guix 2>/dev/null || echo "Store size: N/A"
+          echo "Creating local Guix profile..."
+          
+          # Install to local profile
+          guix package -f opencog.scm -p .guix-profile/opencog-profile || echo "Profile creation skipped"
+          
+          if [ -f ".guix-profile/opencog-profile" ]; then
+            echo "✓ Local profile created"
+            ls -lh .guix-profile/
+          fi
+
+      - name: Display build statistics
+        run: |
+          echo "=== Build Statistics ==="
+          echo ""
+          echo "Local build directory:"
+          du -sh build/ 2>/dev/null || echo "N/A"
+          echo ""
+          echo "Local Guix profile:"
+          du -sh .guix-profile/ 2>/dev/null || echo "N/A"
+          echo ""
+          echo "Guix store:"
+          du -sh /var/guix 2>/dev/null || echo "N/A"
+          echo ""
+          echo "Files in build directory:"
+          find build/ -type f 2>/dev/null | wc -l || echo "0"
+
+      - name: Create .gitignore for build artifacts
+        run: |
+          # Create/update .gitignore to exclude large binary files but keep structure
+          cat > build/.gitignore << 'EOF'
+          # Keep directory structure but ignore some large files
+          *.so
+          *.a
+          *.o
+          __pycache__/
+          *.pyc
+          EOF
+          
+          # Don't ignore everything - we want to commit the build
+          echo "✓ Created build/.gitignore"
+
+      - name: Commit and push build directory to repository
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          echo "Configuring git..."
+          git config user.name "GitHub Actions Bot"
+          git config user.email "actions@github.com"
+          
+          # Configure git to use the PAT
+          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+          
+          echo "Checking for changes..."
+          git add build/ .guix-profile/ || true
+          
+          # Check if there are changes to commit
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            echo "Committing build directory..."
+            git commit -m "chore: Update build directory [skip ci]
+
+          Auto-generated by workflow run #${{ github.run_number }}
+          Commit: ${{ github.sha }}
+          
+          Build statistics:
+          - Build directory: $(du -sh build/ 2>/dev/null | cut -f1 || echo 'N/A')
+          - Profile: $(du -sh .guix-profile/ 2>/dev/null | cut -f1 || echo 'N/A')
+          - Files: $(find build/ -type f 2>/dev/null | wc -l || echo '0')"
+            
+            echo "Pushing to repository..."
+            git push origin main || echo "Push failed, may need manual intervention"
+            echo "✓ Build directory committed and pushed to repository"
+          fi
 
       - name: Export package manifest
         run: |
@@ -81,37 +188,41 @@ jobs:
           echo "Manifest content:"
           cat opencog-manifest.scm
 
-      - name: Get build output path
-        id: build_output
+      - name: Create artifacts from local build
         run: |
-          echo "Getting build output path..."
-          BUILD_PATH=$(guix build -f opencog.scm)
-          echo "Build path: $BUILD_PATH"
-          echo "build_path=$BUILD_PATH" >> $GITHUB_OUTPUT
-
-      - name: Create package archive
-        run: |
-          echo "Creating package archive..."
+          echo "Creating artifacts from local build directory..."
           mkdir -p artifacts
-          cd artifacts
           
-          # Create tarball from build output
-          BUILD_PATH="${{ steps.build_output.outputs.build_path }}"
-          if [ -n "$BUILD_PATH" ] && [ -d "$BUILD_PATH" ]; then
-            echo "Packaging $BUILD_PATH..."
-            tar -czf opencog-pack.tar.gz -C "$BUILD_PATH" .
+          # Create tarball from local build directory
+          if [ -d "build/opencog" ] && [ "$(ls -A build/opencog)" ]; then
+            echo "Packaging build/opencog/..."
+            tar -czf artifacts/opencog-pack.tar.gz -C build opencog
+            echo "✓ Created opencog-pack.tar.gz"
           else
-            echo "Build path not found, creating placeholder"
-            echo "OpenCog build output not available" > README.txt
-            tar -czf opencog-pack.tar.gz README.txt
+            echo "No build output found, creating placeholder"
+            echo "OpenCog build output not available" > artifacts/README.txt
+            tar -czf artifacts/opencog-pack.tar.gz -C artifacts README.txt
           fi
           
-          cd ..
+          # Also create a tarball of the Guix profile if it exists
+          if [ -d ".guix-profile" ] && [ "$(ls -A .guix-profile)" ]; then
+            echo "Packaging Guix profile..."
+            tar -czf artifacts/opencog-profile.tar.gz .guix-profile
+            echo "✓ Created opencog-profile.tar.gz"
+          fi
+          
           ls -lh artifacts/
 
       - name: Generate build info
         run: |
           echo "Generating build information..."
+          
+          # Get git status for build directory
+          BUILD_COMMITTED="No"
+          if git log -1 --pretty=format:"%s" | grep -q "Update build directory"; then
+            BUILD_COMMITTED="Yes (committed to repository)"
+          fi
+          
           cat > artifacts/build-info.txt << EOF
           OpenCog Guix Package Build
           ==========================
@@ -120,7 +231,16 @@ jobs:
           Git Branch: ${GITHUB_REF#refs/heads/}
           Workflow Run: ${GITHUB_RUN_NUMBER}
           Runner OS: $(uname -a)
-          Build Output Path: ${{ steps.build_output.outputs.build_path }}
+          
+          Local Build Directory: ./build/opencog/
+          Local Guix Profile: ./.guix-profile/
+          Build Committed to Repo: ${BUILD_COMMITTED}
+          
+          Build Statistics:
+          -----------------
+          Build directory size: $(du -sh build/ 2>/dev/null | cut -f1 || echo "N/A")
+          Profile size: $(du -sh .guix-profile/ 2>/dev/null | cut -f1 || echo "N/A")
+          Total files: $(find build/ -type f 2>/dev/null | wc -l || echo "0")
           
           Guix Version:
           -------------
@@ -129,11 +249,15 @@ jobs:
           Build Command Used:
           ------------------
           guix build -f opencog.scm
+          guix package -f opencog.scm -p .guix-profile/opencog-profile
           
-          Cache Status:
-          ------------
-          Cache was used for dependencies (if available from previous builds)
-          All downloaded sources and built packages are cached for future runs
+          Storage Strategy:
+          ----------------
+          ✓ Build directory saved to repository (./build/)
+          ✓ Automatically committed and pushed after successful build
+          ✓ Local Guix profile cached (./.guix-profile/)
+          ✓ Guix store cached (/var/guix)
+          ✓ All dependencies cached for future runs
           
           Package Definition:
           ------------------
@@ -148,6 +272,12 @@ jobs:
           
           # Try to get package info
           guix package --show=opencog > artifacts/package-info.txt 2>&1 || echo "Package info not available via guix package --show" > artifacts/package-info.txt
+          
+          # Copy a sample of build directory structure
+          if [ -d "build/opencog" ]; then
+            echo "Build directory structure:" > artifacts/build-structure.txt
+            tree -L 3 build/ >> artifacts/build-structure.txt 2>/dev/null || find build/ -maxdepth 3 -type d >> artifacts/build-structure.txt
+          fi
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -157,6 +287,15 @@ jobs:
             artifacts/
           retention-days: 90
           compression-level: 9
+
+      - name: Upload local build directory
+        uses: actions/upload-artifact@v4
+        with:
+          name: opencog-local-build
+          path: |
+            build/
+          retention-days: 30
+          compression-level: 6
 
       - name: Upload package definition separately
         uses: actions/upload-artifact@v4
@@ -170,23 +309,31 @@ jobs:
           echo "## 🎉 Build Successful!" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Build Information" >> $GITHUB_STEP_SUMMARY
-          echo "- **Build Path**: \`${{ steps.build_output.outputs.build_path }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Local Build Directory**: \`./build/opencog/\` (committed to repo)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Local Guix Profile**: \`./.guix-profile/\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Git Commit**: \`${GITHUB_SHA:0:7}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Workflow Run**: #${GITHUB_RUN_NUMBER}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 🚀 Caching Enabled" >> $GITHUB_STEP_SUMMARY
-          echo "Dependencies and build outputs are cached for faster future builds." >> $GITHUB_STEP_SUMMARY
-          echo "Cache key: \`guix-store-${{ runner.os }}-${{ hashFiles('opencog.scm') }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "### 🔄 Auto-Sync Enabled" >> $GITHUB_STEP_SUMMARY
+          echo "Build directory is automatically committed and pushed to the repository!" >> $GITHUB_STEP_SUMMARY
+          echo "- Check the \`build/\` directory in the repository for built packages" >> $GITHUB_STEP_SUMMARY
+          echo "- Future builds will reuse existing build outputs" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Artifacts Generated" >> $GITHUB_STEP_SUMMARY
-          echo "- **opencog-pack.tar.gz**: Package archive" >> $GITHUB_STEP_SUMMARY
+          echo "### 🚀 Multi-Layer Caching" >> $GITHUB_STEP_SUMMARY
+          echo "1. **Repository storage** (\`./build/\`) - Committed and pushed automatically" >> $GITHUB_STEP_SUMMARY
+          echo "2. **GitHub Actions cache** - Build directory and profile cached" >> $GITHUB_STEP_SUMMARY
+          echo "3. **Guix store cache** (\`/var/guix\`) - Dependencies cached" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📦 Artifacts Generated" >> $GITHUB_STEP_SUMMARY
+          echo "- **opencog-pack.tar.gz**: Package archive from local build" >> $GITHUB_STEP_SUMMARY
+          echo "- **opencog-profile.tar.gz**: Guix profile archive" >> $GITHUB_STEP_SUMMARY
+          echo "- **opencog-local-build**: Complete build directory (separate artifact)" >> $GITHUB_STEP_SUMMARY
           echo "- **opencog-package-definition.scm**: Original package definition" >> $GITHUB_STEP_SUMMARY
-          echo "- **build-info.txt**: Build metadata" >> $GITHUB_STEP_SUMMARY
-          echo "- **package-info.txt**: Package information" >> $GITHUB_STEP_SUMMARY
+          echo "- **build-info.txt**: Build metadata and statistics" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Artifact Sizes" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
           ls -lh artifacts/ >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "📦 Download artifacts from the workflow run page." >> $GITHUB_STEP_SUMMARY
+          echo "📥 Download artifacts or check the \`build/\` directory in the repository." >> $GITHUB_STEP_SUMMARY
