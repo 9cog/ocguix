@@ -20,22 +20,45 @@
     <main class="container">
         <div class="package-detail">
             <h2>agi-bio</h2>
-            <p class="version">Version: 0-1.b5c6f3d</p>
+            <p class="version">0-1.b5c6f3d</p>
+
+            <p class="synopsis-text">Genomic and proteomic data &amp; pattern mining</p>
             
             <div class="package-info">
                 <div class="info-row">
-                    <span class="info-label">Synopsis:</span>
-                    <span class="info-value">Genomic and proteomic data & pattern mining</span>
+                    <span class="info-label">Website:</span>
+                    <span class="info-value"><a href="https://github.com/opencog/agi-bio/">https://github.com/opencog/agi-bio/</a></span>
                 </div>
                 <div class="info-row">
-                    <span class="info-label">Commit:</span>
-                    <span class="info-value">b5c6f3d</span>
+                    <span class="info-label">License:</span>
+                    <span class="info-value"><a href="https://gnu.org/licenses/agpl.html">AGPL 3</a></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Build system:</span>
+                    <span class="info-value">cmake-build-system</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Dependencies:</span>
+                    <span class="info-value">
+                        <span class="dep-tag"><a href="../../atomspace/5.0.3-1.86c848d/">atomspace</a></span>
+                        <span class="dep-tag"><a href="../../cogutil/2.0.3-1.b07b41b/">cogutil</a></span>
+                        <span class="dep-tag">gmp</span>
+                        <span class="dep-tag">guile</span>
+                    </span>
                 </div>
             </div>
             
             <div class="description-section">
                 <h3>Description</h3>
-                <p>Genomic and proteomic data and pattern mining tools for AGI systems. This package provides specialized tools and algorithms for analyzing biological data, including genomic and proteomic information, using OpenCog's AGI framework for pattern discovery and analysis.</p>
+                <p>This is a package for genomic and proteomic research using the OpenCog toolset with Guile. This includes experiments in applying pattern mining and other OpenCog components.</p>
+            </div>
+
+            <div class="install-section">
+                <h3>Installation</h3>
+                <p>Install <code>agi-bio 0-1.b5c6f3d</code> as follows:</p>
+                <pre class="install-command">guix install agi-bio@0-1.b5c6f3d</pre>
+                <p>Or install the <a href="../../agi-bio/">latest version</a>:</p>
+                <pre class="install-command">guix install agi-bio</pre>
             </div>
         </div>
     </main>

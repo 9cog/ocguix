@@ -20,22 +20,47 @@
     <main class="container">
         <div class="package-detail">
             <h2>attention</h2>
-            <p class="version">Version: 0-1.87d4367</p>
+            <p class="version">0-1.87d4367</p>
+
+            <p class="synopsis-text">OC attention allocation subsystem</p>
             
             <div class="package-info">
                 <div class="info-row">
-                    <span class="info-label">Synopsis:</span>
-                    <span class="info-value">OC attention allocation subsystem</span>
+                    <span class="info-label">Website:</span>
+                    <span class="info-value"><a href="https://github.com/opencog/attention/">https://github.com/opencog/attention/</a></span>
                 </div>
                 <div class="info-row">
-                    <span class="info-label">Commit:</span>
-                    <span class="info-value">87d4367</span>
+                    <span class="info-label">License:</span>
+                    <span class="info-value"><a href="https://gnu.org/licenses/agpl.html">AGPL 3</a></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Build system:</span>
+                    <span class="info-value">cmake-build-system</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Dependencies:</span>
+                    <span class="info-value">
+                        <span class="dep-tag"><a href="../../atomspace/5.0.3-1.86c848d/">atomspace</a></span>
+                        <span class="dep-tag">boost</span>
+                        <span class="dep-tag"><a href="../../cogserver/0-2.ec5f3b9/">cogserver</a></span>
+                        <span class="dep-tag"><a href="../../cogutil/2.0.3-1.b07b41b/">cogutil</a></span>
+                        <span class="dep-tag">gmp</span>
+                        <span class="dep-tag">guile</span>
+                    </span>
                 </div>
             </div>
             
             <div class="description-section">
                 <h3>Description</h3>
-                <p>OpenCog attention allocation subsystem. This component manages the allocation of computational resources and focus within the OpenCog system, implementing attention mechanisms that help prioritize processing of important information.</p>
+                <p>Attention Allocation is an OpenCog subsystem meant to control the application of processing and memory resources to specific tasks.</p>
+            </div>
+
+            <div class="install-section">
+                <h3>Installation</h3>
+                <p>Install <code>attention 0-1.87d4367</code> as follows:</p>
+                <pre class="install-command">guix install attention@0-1.87d4367</pre>
+                <p>Or install the <a href="../../attention/">latest version</a>:</p>
+                <pre class="install-command">guix install attention</pre>
             </div>
         </div>
     </main>
