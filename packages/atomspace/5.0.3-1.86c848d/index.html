@@ -20,22 +20,46 @@
     <main class="container">
         <div class="package-detail">
             <h2>atomspace</h2>
-            <p class="version">Version: 5.0.3-1.86c848d</p>
+            <p class="version">5.0.3-1.86c848d</p>
+
+            <p class="synopsis-text">OC hypergraph db, query system and rule engine</p>
             
             <div class="package-info">
                 <div class="info-row">
-                    <span class="info-label">Synopsis:</span>
-                    <span class="info-value">OC hypergraph db, query system and rule engine</span>
+                    <span class="info-label">Website:</span>
+                    <span class="info-value"><a href="https://github.com/opencog/atomspace/">https://github.com/opencog/atomspace/</a></span>
                 </div>
                 <div class="info-row">
-                    <span class="info-label">Commit:</span>
-                    <span class="info-value">86c848d</span>
+                    <span class="info-label">License:</span>
+                    <span class="info-value"><a href="https://gnu.org/licenses/agpl.html">AGPL 3</a></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Build system:</span>
+                    <span class="info-value">cmake-build-system</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Dependencies:</span>
+                    <span class="info-value">
+                        <span class="dep-tag">boost</span>
+                        <span class="dep-tag"><a href="../../cogutil/2.0.3-1.b07b41b/">cogutil</a></span>
+                        <span class="dep-tag">gmp</span>
+                        <span class="dep-tag">guile</span>
+                        <span class="dep-tag">postgresql</span>
+                    </span>
                 </div>
             </div>
             
             <div class="description-section">
                 <h3>Description</h3>
-                <p>OpenCog hypergraph database, query system and rule engine. AtomSpace is the core knowledge representation system in OpenCog, providing a hypergraph database for storing and manipulating knowledge, along with powerful query and reasoning capabilities.</p>
+                <p>The OpenCog AtomSpace is an in-RAM knowledge representation (KR) database, an associated query engine and graph-re-writing system, and a rule-driven inferencing engine that can apply and manipulate sequences of rules to perform reasoning. It is a layer that sits on top of ordinary distributed (graph) databases, providing a large variety of advanced features not otherwise available.</p>
+            </div>
+
+            <div class="install-section">
+                <h3>Installation</h3>
+                <p>Install <code>atomspace 5.0.3-1.86c848d</code> as follows:</p>
+                <pre class="install-command">guix install atomspace@5.0.3-1.86c848d</pre>
+                <p>Or install the <a href="../../atomspace/">latest version</a>:</p>
+                <pre class="install-command">guix install atomspace</pre>
             </div>
         </div>
     </main>
